@@ -106,18 +106,13 @@ and set, at least, the `ALLOWED_HOSTS` and `SECRET_KEY` variables under
 
         docker-compose up -d
 
-1. Initialize the database *(first run/after migrations updates)*
-
-        docker-compose exec app python manage.py migrate
-        
-1. Initialize cache table *(first run/after cache configuration updates)*
-
-        docker-compose exec app python manage.py createcachetable
-
 The app should now be locally available at
 [http://127.0.0.1:8000](http://127.0.0.1:8000). See
 [Docker's "Get Started" documentation](https://docs.docker.com/get-started/)
 for detailed information about deployment methods with Docker.
+
+A secondary example file `docker-compose.example.sqlite.yml` is also available
+for a simpler SQLite-based deployment (the default example users PostgreSQL).
 
 ### Heroku
 
@@ -289,6 +284,7 @@ take precedence over the contents of an `.env` file.**
 - [`NAP_START_MIN`](#nap_start_min)
 - [`SECRET_KEY`](#secret_key)
 - [`TIME_ZONE`](#time_zone)
+- [`USE_24_HOUR_TIME_FORMAT`](#use_24_hour_time_format)
 
 ### `ALLOWED_HOSTS`
 
@@ -374,6 +370,21 @@ The default time zone to use for the instance. See [List of tz database time zon
 for all possible values. This value can be overridden per use from the user
 settings form.
 
+### `USE_24_HOUR_TIME_FORMAT`
+
+*Default: False*
+
+Whether to force 24-hour time format for locales that do not ordinarily use it
+(e.g. `en`). Support for this feature must implemented on a per-locale basis.
+See format files under [`babybuddy/formats`](babybuddy/formats) for supported
+locales.
+
+Note: This value for this setting is interpreted as a boolean from a string
+using Python's built-in [`strtobool`](https://docs.python.org/3/distutils/apiref.html#distutils.util.strtobool)
+tool. Only certain strings are supported (e.g. "True" for `True` and "False" for
+`False`), other unrecognized strings will cause a `ValueError` and prevent Baby
+Buddy from loading.
+
 ## Languages
 
 Baby Buddy includes translation support as of v1.2.2. Language can be set on a
@@ -384,6 +395,8 @@ create/update translations.
 ### Available languages
 
 :us: English (U.S.) *(base)*
+
+:finland: Finnish
 
 :fr: French
 
@@ -481,6 +494,12 @@ header to `Token <user-key>`. E.g.
 
 If the `Authorization` header is not set or the key is not valid, the API will
 return `403 Forbidden` with additional details in the response body.
+
+### Schema
+
+API schema information in the [OpenAPI format](https://swagger.io/specification/)
+can be found in the `openapi-schema.yml` file in the project root. A live
+version is also available at the `/api/scehma` path of a running instance.
 
 ### `GET` Method
 

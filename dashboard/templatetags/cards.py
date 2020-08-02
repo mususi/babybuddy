@@ -5,6 +5,8 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
+from datetime import date, datetime, time
+
 from core import models
 
 
@@ -64,6 +66,31 @@ def card_diaperchange_types(child, date=None):
             stats[key]['solid_pct'] = info['solid'] / total * 100
 
     return {'type': 'diaperchange', 'stats': stats, 'total': week_total}
+
+
+@register.inclusion_tag('cards/feeding_day.html')
+def card_feeding_day(child, date=None):
+    """
+    Filters Feeding instances to get total amount for a specific date.
+    :param child: an instance of the Child model.
+    :param date: a Date object for the day to filter.
+    :returns: a dict with count and total amount for the Feeding instances.
+    """
+    if not date:
+        date = timezone.localtime().date()
+    instances = models.Feeding.objects.filter(child=child).filter(
+        start__year=date.year,
+        start__month=date.month,
+        start__day=date.day) \
+        | models.Feeding.objects.filter(child=child).filter(
+        end__year=date.year,
+        end__month=date.month,
+        end__day=date.day)
+
+    total = sum([instance.amount for instance in instances if instance.amount])
+    count = len(instances)
+
+    return {'type': 'feeding', 'total': total, 'count': count}
 
 
 @register.inclusion_tag('cards/feeding_last.html')
@@ -146,8 +173,15 @@ def card_sleep_naps_day(child, date=None):
     :param date: a Date object for the day to filter.
     :returns: a dictionary of nap data statistics.
     """
-    date = timezone.localtime(date).astimezone(timezone.utc)
-    instances = models.Sleep.naps.filter(child=child, start__date=date.date())
+    if not date:
+        date = timezone.localtime().date()
+    instances = models.Sleep.naps.filter(child=child).filter(
+        start__year=date.year,
+        start__month=date.month,
+        start__day=date.day) | models.Sleep.naps.filter(child=child).filter(
+        end__year=date.year,
+        end__month=date.month,
+        end__day=date.day)
     return {
         'type': 'sleep',
         'total': instances.aggregate(Sum('duration'))['duration__sum'],
@@ -170,10 +204,11 @@ def card_statistics(child):
         'title': _('Diaper change frequency')})
 
     feedings = _feeding_statistics(child)
-    stats.append({
-        'type': 'duration',
-        'stat': feedings['btwn_average'],
-        'title': _('Feeding frequency')})
+    for item in feedings:
+        stats.append({
+            'type': 'duration',
+            'stat': item['btwn_average'],
+            'title': item['title']})
 
     naps = _nap_statistics(child)
     stats.append({
@@ -235,22 +270,43 @@ def _feeding_statistics(child):
     :param child: an instance of the Child model.
     :returns: a dictionary of statistics.
     """
+    feedings = [
+            {
+                'start': timezone.now() - timezone.timedelta(days=3),
+                'title': _('Feeding frequency (past 3 days)')
+            },
+            {
+                'start': timezone.now() - timezone.timedelta(weeks=2),
+                'title': _('Feeding frequency (past 2 weeks)')
+            },
+            {
+                'start': timezone.make_aware(
+                    datetime.combine(date.min, time(0, 0))
+                    + timezone.timedelta(days=1)),
+                'title': _('Feeding frequency')
+            }
+        ]
+    for timespan in feedings:
+        timespan['btwn_total'] = timezone.timedelta(0)
+        timespan['btwn_count'] = 0
+        timespan['btwn_average'] = 0.0
+
     instances = models.Feeding.objects.filter(child=child).order_by('start')
-    feedings = {
-        'btwn_total': timezone.timedelta(0),
-        'btwn_count': instances.count() - 1,
-        'btwn_average': 0.0}
     last_instance = None
 
     for instance in instances:
         if last_instance:
-            feedings['btwn_total'] += instance.start - last_instance.end
+            for timespan in feedings:
+                if last_instance.start > timespan['start']:
+                    timespan['btwn_total'] += (instance.start
+                                               - last_instance.end)
+                    timespan['btwn_count'] += 1
         last_instance = instance
 
-    if feedings['btwn_count'] > 0:
-        feedings['btwn_average'] = \
-            feedings['btwn_total'] / feedings['btwn_count']
-
+    for timespan in feedings:
+        if timespan['btwn_count'] > 0:
+            timespan['btwn_average'] = \
+                timespan['btwn_total'] / timespan['btwn_count']
     return feedings
 
 

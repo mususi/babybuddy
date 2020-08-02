@@ -46,6 +46,12 @@ class TemplateTagsTestCase(TestCase):
         }
         self.assertEqual(data['stats'], stats)
 
+    def test_card_feeding_day(self):
+        data = cards.card_feeding_day(self.child, self.date)
+        self.assertEqual(data['type'], 'feeding')
+        self.assertEqual(data['total'], 2.5)
+        self.assertEqual(data['count'], 3)
+
     def test_card_feeding_last(self):
         data = cards.card_feeding_last(self.child)
         self.assertEqual(data['type'], 'feeding')
@@ -88,10 +94,22 @@ class TemplateTagsTestCase(TestCase):
                 'stat': timezone.timedelta(0, 44228, 571429),
                 'type': 'duration'
             },
+            # Statistics date basis is not particularly strong to these feeding
+            # examples.
+            # TODO: Improve testing of feeding frequency statistics.
             {
-                'title': 'Feeding frequency',
+                'type': 'duration',
+                'stat': 0.0,
+                'title': 'Feeding frequency (past 3 days)'
+            },
+            {
+                'type': 'duration',
+                'stat': 0.0,
+                'title': 'Feeding frequency (past 2 weeks)'},
+            {
+                'type': 'duration',
                 'stat': timezone.timedelta(0, 7200),
-                'type': 'duration'
+                'title': 'Feeding frequency'
             },
             {
                 'title': 'Average nap duration',
